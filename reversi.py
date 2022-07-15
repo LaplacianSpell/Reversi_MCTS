@@ -12,10 +12,9 @@ os.environ["USE_SIMPLE_THREADED_LEVEL3"] = "1"
 
 
 # add your own imports below
-import datetime
+import time
 from random import choice
 import math
-import numpy as np
 
 # define your helper functions here
 
@@ -36,7 +35,7 @@ def index_to_coord(i: int) -> Tuple[int, int]:
 # class for restoration of board and do simulation.
 class MCTS(object):
     '''
-    需要实现复盘功能，辅助模拟：
+    实现复盘功能，辅助模拟：
     1. 给定当前棋盘数组，返回当前落子玩家
     2. 给定当前棋盘数组与落子位置，返回新的棋盘数组
     3. 给定当前棋盘数组，返回允许落子的位置下标的数组
@@ -60,8 +59,7 @@ class MCTS(object):
 
         # 存储玩家走秒
         # 计算走秒时间
-        self.seconds = 180 
-        self.calculationtime = 18 
+        self.calculationtime = 2.5 
 
         #节点信息
         # 字典，键是（玩家编号，当前节点代表的落子位置, 落子后棋盘），值是获胜次数
@@ -88,6 +86,8 @@ class MCTS(object):
 
     def legalPlay(self, board, player):
         '''
+        tells where is legal to play
+
         arguments: 
         - board (list)
         - player (int)
@@ -100,15 +100,42 @@ class MCTS(object):
 
     def winner(self, board):
         '''
+        tells who wins the match or still continuing
+
         arguments:
         - board
 
         return: winner (int)
+        0 or 1
         '''
-        ## TODO:
-        # Take the winner
-        pass
-    
+        user0 = 0
+        user1 = 0
+        noUser = 0
+        for i in board:
+            if i == 0:
+                user0 += 1
+            elif i == 1:
+                user1 += 1
+            else:
+                noUser += 1
+        
+        # 双方都没有棋子可以下时棋局结束，以棋子数目来计算胜负
+        # 棋子多的一方获胜。
+        # 在棋盘还没有下满时，如果一方的棋子已经被对方吃光，则棋局也结束。
+        # 将对手棋子吃光的一方获胜。
+        ## 这里保留和棋手段
+        if user0 == 0:
+            return 1
+        elif user1 == 0:
+            return 0
+        elif ask_next_pos(board, 0) == [] and ask_next_pos(board, 1) == []:
+            if user1 > user0:
+                return 1
+            elif user1 < user0:
+                return 0
+
+
+
     def getMove(self):
         '''
         the main realize of the game AI
@@ -135,8 +162,8 @@ class MCTS(object):
             return legal.index(True)
 
         # 如果有多个可能的位置，在允许的时间里一直进行模拟
-        begin = datetime.datetime.utcnow()
-        while datetime.datetime.utcnow() - begin < self.calculationtime:
+        begin = time.perf_counter()
+        while time.perf_counter() - begin < self.calculationtime:
             self.simulation()
 
         # 寻找当前的所有允许的落子位置
@@ -238,7 +265,7 @@ class MCTS(object):
             winner = winner(state)
 
             # 如果Monte Carlo结束，直接退出并进入算法第四步
-            if winner:
+            if winner == 0 or winner == 1:
                 break
         
         # 这一步是UCT算法的第四步：反向传播

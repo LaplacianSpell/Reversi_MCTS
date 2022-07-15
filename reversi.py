@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 # DO NOT MODIFY THE CODE BELOW
+from re import M
+from sre_parse import State
 import sys, os
 from typing import List, Tuple
 
@@ -44,14 +46,14 @@ class MCTS(object):
     '''
     def __init__(self, player, board, allow):
 
-        # 存储棋盘数组 numpy
-        self.mctsBoard = np.array(board) 
+        # 存储棋盘数组
+        self.mctsBoard = board
 
         # 存储玩家 int 0 or 1
         self.mctsPlayer = player 
 
         # 存储允许落子的点 list
-        self.mcstAllow = np.array(list) 
+        self.mcstAllow = allow
 
         # 存储状态树(记录每次落子的位置 int，也就是游戏过程)
         self.states = [] 
@@ -59,34 +61,27 @@ class MCTS(object):
         # 存储玩家走秒
         # 计算走秒时间
         self.seconds = 180 
-        self.calculation_time = 18 
+        self.calculationtime = 18 
 
         #节点信息
-        # 字典，键是（玩家编号，当前节点代表的落子位置），值是获胜次数
+        # 字典，键是（玩家编号，当前节点代表的落子位置, 落子后棋盘），值是获胜次数
         self.wins = {} 
-        # 字典，键是（玩家编号，当前节点代表的落子位置），值是触摸当前节点次数
+        # 字典，键是（玩家编号，当前节点代表的落子位置， 落子后棋盘），值是触摸当前节点次数
         self.plays = {} 
 
         # UCB1 评估函数的参数，可调节
         self.C = 1.4 
-
-    # def currentPlayer(self, board): # 似乎可以用一个标记变量实现
-    #     '''
-    #     arguments: board (numpy array)
-
-    #     returns: the player (0 or 1)
-    #     '''
 
     def nextBoard(self, board, player, position):
         '''
         renew the board
 
         arguments: 
-        - board (numpy array)
+        - board (list)
         - player (int)
         - position (int)
 
-        returns: board (numpy array)
+        returns: board (list)
         '''
         board[position] = player
         return board    
@@ -94,13 +89,13 @@ class MCTS(object):
     def legalPlay(self, board, player):
         '''
         arguments: 
-        - board (numpy array)
+        - board (list)
         - player (int)
 
-        returns: allow (numpy array)
+        returns: allow (list)
         '''
-        ######
-        allow = np.zeros(64)
+
+        allow = ask_next_pos(board, player)
         return allow
 
     def winner(self, board):
@@ -110,12 +105,14 @@ class MCTS(object):
 
         return: winner (int)
         '''
-        ######
-        return 1
+        ## TODO:
+        # Take the winner
+        pass
     
     def getMove(self):
         '''
         the main realize of the game AI
+        tells how to move next
 
         return: move (int)
         '''
@@ -139,14 +136,15 @@ class MCTS(object):
 
         # 如果有多个可能的位置，在允许的时间里一直进行模拟
         begin = datetime.datetime.utcnow()
-        while datetime.datetime.utcnow() - begin < self.calculation_time:
-            self.run_simulation()
+        while datetime.datetime.utcnow() - begin < self.calculationtime:
+            self.simulation()
 
         # 寻找当前的所有允许的落子位置
-        possibleMove = [(i, self.nextBoard(self.board, player, p)) for i, p in enumerate(legal) if p == True]
+        possibleMove = [(i, self.nextBoard(self.board, player, p)) 
+        for i, p in enumerate(legal) if p == True]
 
-        # 计算所有允许落子位置的胜率最大值，并记录
-        winPossibility, move = max(
+        # 计算所有允许落子位置的胜率最大值，并记录下对应的落子点
+        winProbability, move = max(
             (
             self.wins.get((player, S), 0) /
             self.plays.get((player, S), 1),
@@ -157,6 +155,109 @@ class MCTS(object):
 
         return move
 
+    def simulation(self):
+        '''
+        the core of AI, where the decisions are made
+        '''
+
+        # 拷贝一份树到函数里面
+        plays, wins = self.plays, self.wins
+
+        # 拷贝一份当前棋盘状态，注意是深拷贝
+        states = self.states[:]
+
+        # 取最后一个落子点
+        state = states[-1]
+
+        # 取当前玩家
+        player = self.player
+
+        # 取当前棋盘
+        board = self.board
+
+        # 下面是函数内的辅助数据
+        # 一个set，装从当前状况（根节点）开始，拜访过的节点
+        # 也就是所谓**主路径**，相当于一个cache
+        # 之后在树里面信息，需要根据他更新，不在的直接跳过
+        visitedStates = set()
+
+        # 判断是否进入Expand步骤的依据
+        expand = True
+
+        # Playouts 实现
+        while(True):
+
+            # 合法落子
+            allow = self.legalPlay(board, player)
+            
+            # possibleMove装的是 [(合法落子的下标， 落子后的棋盘[i.e.: state]),...]
+            # 当前节点的子节点
+            possibleMove = [(i, self.nextBoard(self.board, player, p)) 
+            for i, p in enumerate(allow) if p == True]
+
+            # 如果所有的（玩家，合法落子，合法落子后棋盘）作为键对应 plays 字典中的值是真。
+            # 即对所有可能的落子都有模拟产生的胜负信息
+            # 此时执行第一步,即使用UCB1算法
+            if all(plays.get((player, p, B)) for p, B in possibleMove):
+
+                #计算评估函数
+                logTotal = math.log(
+                    sum(plays[(player, p, B)] for p, B in possibleMove)
+                )
+                value, move, state = max(
+                    ((wins[(player, p, B)] / plays[(player, p, B)]) +
+                     self.C * math.sqrt(logTotal / plays[(player, p, B)]), p, B)
+                    for p, B in possibleMove
+                )
+
+
+            # 如果存在一个可能的落子，plays中没有存相关的模拟胜负信息
+            # 此时，随机选一个
+            else:
+                move, state = choice(possibleMove)
+
+            # 将选择的落子状态（新棋盘）加入state中
+            states.append(state)
+
+            # 如果expand为真，且当前玩家落子之后的不在plays中
+            # 也就是上一个分支结构取else:
+            if expand and (player, move, state) not in self.plays:
+                
+                # 这个是为了只记录Expand这一步的落子，**不记录之后模拟的落子**
+                expand = False
+
+                # 为新扩张的点初始化树的节点值
+                self.plays[(player, move, state)] = 0
+                self.wins[(player, state)] = 0
+
+            # 临时set记录一次模拟的所有节点键，**包括之后模拟的落子信息**
+            visitedStates.add((player, move, state))
+
+            # 是否获胜（退出循环的判断标准）
+            player = (player + 1) % 2
+            winner = winner(state)
+
+            # 如果Monte Carlo结束，直接退出并进入算法第四步
+            if winner:
+                break
+        
+        # 这一步是UCT算法的第四步：反向传播
+        for player, move, state in visitedStates:
+
+            # 只有已经记录在plays中的节点才更新
+            if (player, move, state) not in self.plays: 
+                continue
+
+            # 如果在plays中，则玩过的局+1
+            self.plays[(player, move, state)] += 1 
+
+            # 如果当前节点所代表的玩家获胜，则获胜数也+1
+            if player == winner:
+                self.wins[(player, move, state)] += 1
+
+
+
+MyBoard = MCTS(1, [], [])
 
 # modify reversi_ai function to implement your algorithm
 
@@ -169,8 +270,8 @@ def reversi_ai(player: int, board: List[int], allow: List[bool]) -> Tuple[int, i
 
     return: 落子坐标元组
     '''
-    MyBoard = MCTS(player, board, allow)
-    return MyBoard.getMove()
+    MyBoard.mctsPlayer, MyBoard.mctsBoard, MyBoard.mctsAllow = player, board, allow
+    return index_to_coord(MyBoard.getMove())
 
 # DO NOT MODIFY ANY CODE BELOW
 # **不要修改**以下的代码

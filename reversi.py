@@ -144,9 +144,6 @@ class MCTS(object):
         return: move (int)
         '''
 
-        # 落子记录的副本，避免直接修改
-        states = self.states[-1] 
-
         # 当前落子的玩家
         player = self.mctsPlayer 
 
@@ -167,7 +164,7 @@ class MCTS(object):
             self.simulation()
 
         # 寻找当前的所有允许的落子位置
-        possibleMove = [(i, self.nextBoard(self.board, player, p)) 
+        possibleMove = [(i, self.nextBoard(self.mctsBoard, player, p)) 
         for i, p in enumerate(legal) if p == True]
 
         # 计算所有允许落子位置的胜率最大值，并记录下对应的落子点
@@ -193,14 +190,11 @@ class MCTS(object):
         # 拷贝一份当前棋盘状态，注意是深拷贝
         states = self.states[:]
 
-        # 取最后一个落子点
-        state = states[-1]
-
         # 取当前玩家
-        player = self.player
+        player = self.mctsPlayer
 
         # 取当前棋盘
-        board = self.board
+        board = self.mctsBoard
 
         # 下面是函数内的辅助数据
         # 一个set，装从当前状况（根节点）开始，拜访过的节点
@@ -219,7 +213,7 @@ class MCTS(object):
             
             # possibleMove装的是 [(合法落子的下标， 落子后的棋盘[i.e.: state]),...]
             # 当前节点的子节点
-            possibleMove = [(i, self.nextBoard(self.board, player, p)) 
+            possibleMove = [(i, self.nextBoard(self.mctsBoard, player, p)) 
             for i, p in enumerate(allow) if p == True]
 
             # 如果所有的（玩家，合法落子，合法落子后棋盘）作为键对应 plays 字典中的值是真。
@@ -255,7 +249,7 @@ class MCTS(object):
 
                 # 为新扩张的点初始化树的节点值
                 self.plays[(player, move, state)] = 0
-                self.wins[(player, state)] = 0
+                self.wins[(player, move, state)] = 0
 
             # 临时set记录一次模拟的所有节点键，**包括之后模拟的落子信息**
             visitedStates.add((player, move, state))

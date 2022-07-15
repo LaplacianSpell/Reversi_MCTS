@@ -210,7 +210,7 @@ class MCTS(object):
 
             # 合法落子
             allow = self.legalPlay(board, player)
-            
+
             # possibleMove装的是 [(合法落子的下标， 落子后的棋盘[i.e.: state]),...]
             # 当前节点的子节点
             possibleMove = [(i, tuple(self.nextBoard(self.mctsBoard, player, p))) 
@@ -256,7 +256,7 @@ class MCTS(object):
 
             # 是否获胜（退出循环的判断标准）
             player = (player + 1) % 2
-            winner = winner(state)
+            winner = self.winner(state)
 
             # 如果Monte Carlo结束，直接退出并进入算法第四步
             if winner == 0 or winner == 1:

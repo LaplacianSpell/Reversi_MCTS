@@ -13,6 +13,7 @@ os.environ["USE_SIMPLE_THREADED_LEVEL3"] = "1"
 import time
 from random import choice
 import math
+import copy
 
 # define your helper functions here
 
@@ -159,7 +160,7 @@ class MCTS(object):
                 for yagainst in range(y - 1, site[1], -1):
                     board[coord_to_index(site[0], yagainst)] = player
     
-        for y in range(site[1] - 1, 0, -1):
+        for y in range(site[1] - 1, -1, -1):
             if board[coord_to_index(site[0], y)] == againstPlayer:
                 pass
             elif board[coord_to_index(site[0], y)] == 2:
@@ -237,7 +238,7 @@ class MCTS(object):
         player = self.mctsPlayer 
 
         # 允许的落子地点
-        legal = self.mcstAllow 
+        legal = self.mcstAllow[:]
 
         # 如果所有的位置都不能落子，直接返回
         # if True not in legal:
@@ -274,7 +275,7 @@ class MCTS(object):
         '''
 
         # 拷贝一份树到函数里面
-        plays, wins = self.plays, self.wins
+        plays, wins = copy.deepcopy(self.plays), copy.deepcopy(self.wins)
 
         # 取当前玩家
         player = self.mctsPlayer
@@ -291,7 +292,7 @@ class MCTS(object):
         # Playouts 实现
         # 合法落子
         ## TODO simplify
-        allow = self.legalPlay(list(state), player)
+        allow = self.mcstAllow[:]
 
         # possibleMove装的是 [(合法落子的下标， 落子后的棋盘[i.e.: state]),...]
         # 当前节点的子节点

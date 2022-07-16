@@ -160,7 +160,7 @@ class MCTS(object):
             self.simulation()
         
         # 寻找当前的所有允许的落子位置
-        possibleMove = [(i, tuple(self.nextBoard(self.mctsBoard, player, p))) 
+        possibleMove = [(i, tuple(self.nextBoard(self.mctsBoard, player, i))) 
         for i, p in enumerate(legal) if p == True]
 
         # 计算所有允许落子位置的胜率最大值，并记录下对应的落子点
@@ -206,7 +206,7 @@ class MCTS(object):
 
             # possibleMove装的是 [(合法落子的下标， 落子后的棋盘[i.e.: state]),...]
             # 当前节点的子节点
-            possibleMove = [(i, tuple(self.nextBoard(list(state), player, p))) 
+            possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
             for i, p in enumerate(allow) if p == True]
 
             # 如果所有的（玩家，合法落子，合法落子后棋盘）作为键对应 plays 字典中的值是真。

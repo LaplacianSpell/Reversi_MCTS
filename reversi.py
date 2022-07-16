@@ -53,10 +53,6 @@ class MCTS(object):
 
         # 存储允许落子的点 list
         self.mcstAllow = allow
-
-        # 存储状态树(记录每次落子的位置 int，也就是游戏过程)
-        self.states = [] 
-
         # 存储玩家走秒
         # 计算走秒时间
         self.calculationtime = 2.5 
@@ -103,7 +99,7 @@ class MCTS(object):
         tells who wins the match or still continuing
 
         arguments:
-        - board
+        - board (tuple)
 
         return: winner (int)
         0 or 1
@@ -128,7 +124,7 @@ class MCTS(object):
             return 1
         elif user1 == 0:
             return 0
-        elif ask_next_pos(board, 0) == [] and ask_next_pos(board, 1) == []:
+        elif ask_next_pos(list(board), 0) == [] and ask_next_pos(list(board), 1) == []:
             if user1 > user0:
                 return 1
             elif user1 < user0:
@@ -162,7 +158,7 @@ class MCTS(object):
         begin = time.perf_counter()
         while time.perf_counter() - begin < self.calculationtime:
             self.simulation()
-
+        
         # 寻找当前的所有允许的落子位置
         possibleMove = [(i, tuple(self.nextBoard(self.mctsBoard, player, p))) 
         for i, p in enumerate(legal) if p == True]
@@ -170,8 +166,8 @@ class MCTS(object):
         # 计算所有允许落子位置的胜率最大值，并记录下对应的落子点
         winProbability, move = max(
             (
-            self.wins.get((player, S), 0) /
-            self.plays.get((player, S), 1),
+            self.wins.get((player, p, S), 0) /
+            self.plays.get((player, p, S), 1),
             p
             )
             for p, S in possibleMove 
@@ -187,14 +183,11 @@ class MCTS(object):
         # 拷贝一份树到函数里面
         plays, wins = self.plays, self.wins
 
-        # 拷贝一份当前棋盘状态，注意是深拷贝
-        states = self.states[:]
-
         # 取当前玩家
         player = self.mctsPlayer
 
         # 取当前棋盘
-        board = self.mctsBoard
+        state = tuple(self.mctsBoard)
 
         # 下面是函数内的辅助数据
         # 一个set，装从当前状况（根节点）开始，拜访过的节点
@@ -209,11 +202,11 @@ class MCTS(object):
         while(True):
 
             # 合法落子
-            allow = self.legalPlay(board, player)
+            allow = self.legalPlay(list(state), player)
 
             # possibleMove装的是 [(合法落子的下标， 落子后的棋盘[i.e.: state]),...]
             # 当前节点的子节点
-            possibleMove = [(i, tuple(self.nextBoard(self.mctsBoard, player, p))) 
+            possibleMove = [(i, tuple(self.nextBoard(list(state), player, p))) 
             for i, p in enumerate(allow) if p == True]
 
             # 如果所有的（玩家，合法落子，合法落子后棋盘）作为键对应 plays 字典中的值是真。
@@ -231,14 +224,11 @@ class MCTS(object):
                     for p, B in possibleMove
                 )
 
-
             # 如果存在一个可能的落子，plays中没有存相关的模拟胜负信息
             # 此时，随机选一个
             else:
+                
                 move, state = choice(possibleMove)
-
-            # 将选择的落子状态（新棋盘）加入state中
-            states.append(state)
 
             # 如果expand为真，且当前玩家落子之后的不在plays中
             # 也就是上一个分支结构取else:

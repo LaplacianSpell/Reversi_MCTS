@@ -195,6 +195,7 @@ class MCTS(object):
 
         # Playouts 实现
         # 合法落子
+        ## TODO simplify
         allow = self.legalPlay(list(state), player)
 
         # possibleMove装的是 [(合法落子的下标， 落子后的棋盘[i.e.: state]),...]
@@ -205,19 +206,20 @@ class MCTS(object):
 
         # 此时执行第一步,即使用UCB1算法
         # 看看有没有到叶子节点（没有子节点的节点）
-        while None not in (plays.get(player, p, B) for p, B in possibleMove):
+        while None not in (plays.get((player, p, B)) for p, B in possibleMove):
             # 子节点中是否有plays为0的，如果有，她的UCB1为Inf，进入特定子节点
-            if 0 in (plays.get(player, p, B) for p, B in possibleMove):
-                move, state = choice((p, B) for p, B in possibleMove if plays[(player, p, B)] == 0)
+            if 0 in (plays.get((player, p, B)) for p, B in possibleMove):
+                move, state = choice((p, B) \
+                for p, B in possibleMove if plays[(player, p, B)] == 0)
 
             # 如果所有的plays值都不为0，计算评估函数,并取最大的评估函数
             else:
                 logTotal = math.log(
-                    sum(plays[(player, p, B)] for p, B in possibleMove))
+                float(sum(plays[(player, p, B)] for p, B in possibleMove)))
 
                 value, move, state = max(
-                    ((wins[(player, p, B)] / plays[(player, p, B)]) +
-                    self.C * math.sqrt(logTotal / plays[(player, p, B)]), p, B)
+                    ((float(wins[(player, p, B)]) / float(plays[(player, p, B)])) +
+                    self.C * math.sqrt(float(logTotal) / float(plays[(player, p, B)])), p, B)
                     for p, B in possibleMove
                     )
 
@@ -237,6 +239,8 @@ class MCTS(object):
 
         # 0值叶子
         # 此时，直接Monte Carlo到底
+        # 先还原回来
+        player = (player + 1) % 2
         if plays[(player, move, state)] == 0:
             while(True):
 
@@ -336,18 +340,18 @@ def reversi_ai(player: int, board: List[int], allow: List[bool]) -> Tuple[int, i
 
     return: 落子坐标元组
     '''
-    MyBoard.mctsPlayer, MyBoard.mctsBoard, MyBoard.mctsAllow = player, board, allow
+    MyBoard.mctsPlayer, MyBoard.mctsBoard, MyBoard.mctsAllow = player, board[:], allow[:]
 
     # 初始化搜索树
     if board.count(0) + board.count(1) == 4 or board.count(0) + board.count(1) == 5:
 
         # 初始化根节点
-        MyBoard.wins[(player,  -1, tuple(board))] = 0
-        MyBoard.plays[(player,  -1, tuple(board))] = 0
+        MyBoard.wins[((player + 1) % 2,  -1, tuple(board[:]))] = 0
+        MyBoard.plays[((player + 1) % 2,  -1, tuple(board[:]))] = 0
 
         # 初始化根节点之后可能落子的节点
         for i in \
-        [((player + 1) % 2, index, tuple(MyBoard.nextBoard(board, player, index))) 
+        [(player, index, tuple(MyBoard.nextBoard(board[:], player, index))) 
         for index, p in enumerate(allow) if p]:
             MyBoard.wins[i] = 0
             MyBoard.plays[i] = 0

@@ -76,6 +76,98 @@ class MCTS(object):
         returns: board (list)
         '''
         board[position] = player
+        againstPlayer = (player + 1) % 2
+        # 检查八个方向是否有翻转
+        # 落子位置：
+        site = index_to_coord(position)
+
+        # 标记：右上，右中，右下
+        rightMark = [1, 1, 1]
+        leftMark = [1, 1, 1]
+        # 标记： 左上，左中，左下
+
+        for x in range(site[0] + 1, 8):
+
+            if rightMark[1]:
+                if board[coord_to_index(x, site[1])] == againstPlayer:
+                    pass
+                elif board[coord_to_index(x, site[1])] == 2:
+                    rightMark[1] = 0
+                else:
+                    for xagainst in range(x - 1, site[0], -1):
+                        board[coord_to_index(xagainst, site[1])] = player
+
+            if rightMark[0] and x - site[0] + site[1] < 8:
+                if board[coord_to_index(x, x - site[0] + site[1])] == againstPlayer:
+                    pass
+                elif board[coord_to_index(x, x - site[0] + site[1])] == 2:
+                    rightMark[0] = 0
+                else:
+                    for xagainst in range(x - 1, site[0], -1):
+                        board[coord_to_index(xagainst, xagainst - site[0] + site[1])] = player
+
+            if rightMark[2] and site[0] - x + site[1] >= 0:
+                if board[coord_to_index(x, site[0] - x + site[1])] == againstPlayer:
+                    pass
+                elif board[coord_to_index(x, site[0] - x + site[1])] == 2:
+                    rightMark[2] = 0
+                else:
+                    for xagainst in range(x - 1, site[0], -1):
+                        board[coord_to_index(xagainst, site[0] - xagainst + site[1])] = player
+
+            if sum(rightMark) == 0:
+                break
+        
+        for x in range(site[0] - 1, -1, -1):
+
+            if leftMark[1]:
+                if board[coord_to_index(x, site[1])] == againstPlayer:
+                    pass
+                elif board[coord_to_index(x, site[1])] == 2:
+                    leftMark[1] = 0
+                else:
+                    for xagainst in range(x + 1, site[0], 1):
+                        board[coord_to_index(xagainst, site[1])] = player
+
+            if leftMark[0] and site[0] - x + site[1] < 8:
+                if board[coord_to_index(x, site[0] - x + site[1])] == againstPlayer:
+                    pass
+                elif board[coord_to_index(x, site[0] - x + site[1])] == 2:
+                    leftMark[0] = 0
+                else:
+                    for xagainst in range(x + 1, site[0], 1):
+                        board[coord_to_index(xagainst, - xagainst + site[0] + site[1])] = player
+
+            if leftMark[2] and - site[0] + x + site[1] >= 0:
+                if board[coord_to_index(x, - site[0] + x + site[1])] == againstPlayer:
+                    pass
+                elif board[coord_to_index(x, - site[0] + x + site[1])] == 2:
+                    leftMark[2] = 0
+                else:
+                    for xagainst in range(x + 1, site[0], 1):
+                        board[coord_to_index(xagainst, - site[0] + xagainst + site[1])] = player
+
+            if sum(leftMark) == 0:
+                break
+        
+        for y in range(site[1] + 1, 8):
+            if board[coord_to_index(site[0], y)] == againstPlayer:
+                pass
+            elif board[coord_to_index(site[0], y)] == 2:
+                break
+            else:
+                for yagainst in range(y - 1, site[1], -1):
+                    board[coord_to_index(site[0], yagainst)] = player
+    
+        for y in range(site[1] - 1, 0, -1):
+            if board[coord_to_index(site[0], y)] == againstPlayer:
+                pass
+            elif board[coord_to_index(site[0], y)] == 2:
+                break
+            else:
+                for yagainst in range(y + 1, site[1], 1):
+                    board[coord_to_index(site[0], yagainst)] = player
+
         return board    
 
     def legalPlay(self, board, player):
@@ -128,6 +220,9 @@ class MCTS(object):
             elif user1 < user0:
                 return 0
 
+        else: 
+            return 2
+
 
 
     def getMove(self):
@@ -145,8 +240,8 @@ class MCTS(object):
         legal = self.mcstAllow 
 
         # 如果所有的位置都不能落子，直接返回
-        if not all(legal):
-            return
+        # if True not in legal:
+        #     return
 
         # 如果只有一个位置可以落子，那么只能下那个位置
         if legal.count(True) == 1:
@@ -158,7 +253,7 @@ class MCTS(object):
             self.simulation()
         
         # 寻找当前的所有允许的落子位置
-        possibleMove = [(i, tuple(self.nextBoard(self.mctsBoard, player, i))) 
+        possibleMove = [(i, tuple(self.nextBoard(self.mctsBoard[:], player, i))) 
         for i, p in enumerate(legal) if p == True]
 
         # 计算所有允许落子位置的胜率最大值，并记录下对应的落子点
@@ -201,16 +296,17 @@ class MCTS(object):
         # possibleMove装的是 [(合法落子的下标， 落子后的棋盘[i.e.: state]),...]
         # 当前节点的子节点
         possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
-        for i, p in enumerate(allow) if p == True]
+        for i, p in enumerate(allow[:]) if p == True]
 
 
         # 此时执行第一步,即使用UCB1算法
         # 看看有没有到叶子节点（没有子节点的节点）
-        while None not in (plays.get((player, p, B)) for p, B in possibleMove):
+        ## 如果是空的，返回？
+        while None not in [plays.get((player, p, B)) for p, B in possibleMove]:
             # 子节点中是否有plays为0的，如果有，她的UCB1为Inf，进入特定子节点
-            if 0 in (plays.get((player, p, B)) for p, B in possibleMove):
-                move, state = choice((p, B) \
-                for p, B in possibleMove if plays[(player, p, B)] == 0)
+            if 0 in [plays.get((player, p, B)) for p, B in possibleMove]:
+                move, state = choice([(p, B) \
+                for p, B in possibleMove if plays[(player, p, B)] == 0])
 
             # 如果所有的plays值都不为0，计算评估函数,并取最大的评估函数
             else:
@@ -233,7 +329,7 @@ class MCTS(object):
             allow = self.legalPlay(list(state), player)
 
             possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
-            for i, p in enumerate(allow) if p == True]
+            for i, p in enumerate(allow[:]) if p == True]
 
 
 
@@ -246,6 +342,7 @@ class MCTS(object):
 
                 # 是否获胜（退出循环的判断标准）
                 winner = self.winner(state)
+
                 # 如果Monte Carlo结束，直接退出并进入算法第四步
                 if winner == 0 or winner == 1:
                     break
@@ -257,10 +354,10 @@ class MCTS(object):
                 # 获取下一个玩家可能的落子点
                 allow = self.legalPlay(list(state), player)
                 possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
-                for i, p in enumerate(allow) if p == True]
-
-                move, state = choice(possibleMove)
-                visitedStates.add((player, move, state))
+                for i, p in enumerate(allow[:]) if p == True]
+                if (len(possibleMove) > 0):
+                    move, state = choice(possibleMove)
+                    visitedStates.add((player, move, state))
 
             # 这一步是UCT算法的第四步：反向传播
             for player, move, state in visitedStates:
@@ -280,15 +377,15 @@ class MCTS(object):
         else:
             allow = self.legalPlay(list(state), player)
             for i in \
-            [((player + 1) % 2, index, tuple(self.nextBoard(state, player, index))) 
+            [((player + 1) % 2, index, tuple(self.nextBoard(state[:], player, index))) 
             for index, p in enumerate(allow) if p]:
                 self.wins[i] = 0
                 self.plays[i] = 0
 
             allow = self.legalPlay(list(state), player)
             possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
-            for i, p in enumerate(allow) if p == True]
-            move, state = choice((p, B) for p, B in possibleMove if plays[(player, p, B)] == 0)
+            for i, p in enumerate(allow[:]) if p == True]
+            move, state = choice([(p, B) for p, B in possibleMove if plays[(player, p, B)] == 0])
 
             # 接着进行Monte Carlo
             while(True):
@@ -352,7 +449,7 @@ def reversi_ai(player: int, board: List[int], allow: List[bool]) -> Tuple[int, i
         # 初始化根节点之后可能落子的节点
         for i in \
         [(player, index, tuple(MyBoard.nextBoard(board[:], player, index))) 
-        for index, p in enumerate(allow) if p]:
+        for index, p in enumerate(allow[:]) if p == True]:
             MyBoard.wins[i] = 0
             MyBoard.plays[i] = 0
 

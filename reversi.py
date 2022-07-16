@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 # DO NOT MODIFY THE CODE BELOW
-from re import M
-from sre_parse import State
 import sys, os
 from typing import List, Tuple
 
@@ -195,78 +193,135 @@ class MCTS(object):
         # 之后在树里面信息，需要根据他更新，不在的直接跳过
         visitedStates = set()
 
-        # 判断是否进入Expand步骤的依据
-        expand = True
-
         # Playouts 实现
-        while(True):
+        # 合法落子
+        allow = self.legalPlay(list(state), player)
 
-            # 合法落子
+        # possibleMove装的是 [(合法落子的下标， 落子后的棋盘[i.e.: state]),...]
+        # 当前节点的子节点
+        possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
+        for i, p in enumerate(allow) if p == True]
+
+
+        # 此时执行第一步,即使用UCB1算法
+        # 看看有没有到叶子节点（没有子节点的节点）
+        while None not in (plays.get(player, p, B) for p, B in possibleMove):
+            # 子节点中是否有plays为0的，如果有，她的UCB1为Inf，进入特定子节点
+            if 0 in (plays.get(player, p, B) for p, B in possibleMove):
+                move, state = choice((p, B) for p, B in possibleMove if plays[(player, p, B)] == 0)
+
+            # 如果所有的plays值都不为0，计算评估函数,并取最大的评估函数
+            else:
+                logTotal = math.log(
+                    sum(plays[(player, p, B)] for p, B in possibleMove))
+
+                value, move, state = max(
+                    ((wins[(player, p, B)] / plays[(player, p, B)]) +
+                    self.C * math.sqrt(logTotal / plays[(player, p, B)]), p, B)
+                    for p, B in possibleMove
+                    )
+
+            # 并且将状态装入cache
+            visitedStates.add((player, move, state))
+
+            # 更新玩家编号, 
+            player = (player + 1) % 2
+
+            # 获取下一个玩家可能的落子点
             allow = self.legalPlay(list(state), player)
 
-            # possibleMove装的是 [(合法落子的下标， 落子后的棋盘[i.e.: state]),...]
-            # 当前节点的子节点
             possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
             for i, p in enumerate(allow) if p == True]
 
-            # 如果所有的（玩家，合法落子，合法落子后棋盘）作为键对应 plays 字典中的值是真。
-            # 即对所有可能的落子都有模拟产生的胜负信息
-            # 此时执行第一步,即使用UCB1算法
-            if all(plays.get((player, p, B)) for p, B in possibleMove):
 
-                #计算评估函数
-                logTotal = math.log(
-                    sum(plays[(player, p, B)] for p, B in possibleMove)
-                )
-                value, move, state = max(
-                    ((wins[(player, p, B)] / plays[(player, p, B)]) +
-                     self.C * math.sqrt(logTotal / plays[(player, p, B)]), p, B)
-                    for p, B in possibleMove
-                )
 
-            # 如果存在一个可能的落子，plays中没有存相关的模拟胜负信息
-            # 此时，随机选一个
-            else:
-                
+        # 0值叶子
+        # 此时，直接Monte Carlo到底
+        if plays[(player, move, state)] == 0:
+            while(True):
+
+                # 是否获胜（退出循环的判断标准）
+                winner = self.winner(state)
+                # 如果Monte Carlo结束，直接退出并进入算法第四步
+                if winner == 0 or winner == 1:
+                    break
+
+                # 如果没有获胜，则更新玩家编号, 
+                # 并且将下一个状态装入cache
+                player = (player + 1) % 2
+
+                # 获取下一个玩家可能的落子点
+                allow = self.legalPlay(list(state), player)
+                possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
+                for i, p in enumerate(allow) if p == True]
+
                 move, state = choice(possibleMove)
+                visitedStates.add((player, move, state))
 
-            # 如果expand为真，且当前玩家落子之后的不在plays中
-            # 也就是上一个分支结构取else:
-            if expand and (player, move, state) not in self.plays:
-                
-                # 这个是为了只记录Expand这一步的落子，**不记录之后模拟的落子**
-                expand = False
+            # 这一步是UCT算法的第四步：反向传播
+            for player, move, state in visitedStates:
 
-                # 为新扩张的点初始化树的节点值
-                self.plays[(player, move, state)] = 0
-                self.wins[(player, move, state)] = 0
+                # 只有已经记录在plays中的节点才更新
+                if (player, move, state) not in self.plays: 
+                    continue
 
-            # 临时set记录一次模拟的所有节点键，**包括之后模拟的落子信息**
-            visitedStates.add((player, move, state))
+                # 如果在plays中，则玩过的局+1
+                self.plays[(player, move, state)] += 1 
 
-            # 是否获胜（退出循环的判断标准）
-            player = (player + 1) % 2
-            winner = self.winner(state)
+                # 如果当前节点所代表的玩家获胜，则获胜数也+1
+                if player == winner:
+                    self.wins[(player, move, state)] += 1
 
-            # 如果Monte Carlo结束，直接退出并进入算法第四步
-            if winner == 0 or winner == 1:
-                break
-        
-        # 这一步是UCT算法的第四步：反向传播
-        for player, move, state in visitedStates:
+        # 非0值叶子，扩张
+        else:
+            allow = self.legalPlay(list(state), player)
+            for i in \
+            [((player + 1) % 2, index, tuple(self.nextBoard(state, player, index))) 
+            for index, p in enumerate(allow) if p]:
+                self.wins[i] = 0
+                self.plays[i] = 0
 
-            # 只有已经记录在plays中的节点才更新
-            if (player, move, state) not in self.plays: 
-                continue
+            allow = self.legalPlay(list(state), player)
+            possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
+            for i, p in enumerate(allow) if p == True]
+            move, state = choice((p, B) for p, B in possibleMove if plays[(player, p, B)] == 0)
 
-            # 如果在plays中，则玩过的局+1
-            self.plays[(player, move, state)] += 1 
+            # 接着进行Monte Carlo
+            while(True):
 
-            # 如果当前节点所代表的玩家获胜，则获胜数也+1
-            if player == winner:
-                self.wins[(player, move, state)] += 1
+                # 是否获胜（退出循环的判断标准）
+                winner = self.winner(state)
+                # 如果Monte Carlo结束，直接退出并进入算法第四步
+                if winner == 0 or winner == 1:
+                    break
 
+                # 如果没有获胜，则更新玩家编号, 
+                # 并且将下一个状态装入cache
+                player = (player + 1) % 2
 
+                # 获取下一个玩家可能的落子点
+                allow = self.legalPlay(list(state), player)
+                possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
+                for i, p in enumerate(allow) if p == True]
+
+                move, state = choice(possibleMove)
+                visitedStates.add((player, move, state))
+
+            # 这一步是UCT算法的第四步：反向传播
+            for player, move, state in visitedStates:
+
+                # 只有已经记录在plays中的节点才更新
+                if (player, move, state) not in self.plays: 
+                    continue
+
+                # 如果在plays中，则玩过的局+1
+                self.plays[(player, move, state)] += 1 
+
+                # 如果当前节点所代表的玩家获胜，则获胜数也+1
+                if player == winner:
+                    self.wins[(player, move, state)] += 1
+
+        # 临时set记录一次模拟的所有节点键，**包括之后模拟的落子信息**
 
 MyBoard = MCTS(1, [], [])
 
@@ -282,6 +337,21 @@ def reversi_ai(player: int, board: List[int], allow: List[bool]) -> Tuple[int, i
     return: 落子坐标元组
     '''
     MyBoard.mctsPlayer, MyBoard.mctsBoard, MyBoard.mctsAllow = player, board, allow
+
+    # 初始化搜索树
+    if board.count(0) + board.count(1) == 4 or board.count(0) + board.count(1) == 5:
+
+        # 初始化根节点
+        MyBoard.wins[(player,  -1, tuple(board))] = 0
+        MyBoard.plays[(player,  -1, tuple(board))] = 0
+
+        # 初始化根节点之后可能落子的节点
+        for i in \
+        [((player + 1) % 2, index, tuple(MyBoard.nextBoard(board, player, index))) 
+        for index, p in enumerate(allow) if p]:
+            MyBoard.wins[i] = 0
+            MyBoard.plays[i] = 0
+
     return index_to_coord(MyBoard.getMove())
 
 # DO NOT MODIFY ANY CODE BELOW

@@ -54,7 +54,7 @@ class MCTS(object):
         self.mcstAllow = allow
         # 存储玩家走秒
         # 计算走秒时间
-        self.calculationtime = 2.5 
+        self.calculationtime = 2.9 
 
         #节点信息
         # 字典，键是（玩家编号，当前节点代表的落子位置, 落子后棋盘），值是获胜次数
@@ -254,13 +254,10 @@ class MCTS(object):
         for i, p in enumerate(legal) if p == True]
 
         # 计算所有允许落子位置的胜率最大值，并记录下对应的落子点
-        winProbability, move = max(
-            (
-            self.wins.get((player, p, S), 0) /
-            self.plays.get((player, p, S), 1),
-            p
-            )
-            for p, S in possibleMove 
+        winProbability, move = max (
+            (self.wins.get((player, p, S), 0) / self.plays.get((player, p, S), 1), p) 
+            if (self.plays.get((player, p, S), 1), p) == 0 else (float.MaxValue, p)
+            for p, S in possibleMove
         )
 
         return move
@@ -402,8 +399,9 @@ class MCTS(object):
                 possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
                 for i, p in enumerate(allow) if p == True]
 
-                move, state = choice(possibleMove)
-                visitedStates.add((player, move, state))
+                if (len(possibleMove) > 0):
+                    move, state = choice(possibleMove)
+                    visitedStates.add((player, move, state))
 
             # 这一步是UCT算法的第四步：反向传播
             for player, move, state in visitedStates:

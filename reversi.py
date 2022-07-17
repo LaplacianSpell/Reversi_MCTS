@@ -211,11 +211,7 @@ class MCTS(object):
         # 在棋盘还没有下满时，如果一方的棋子已经被对方吃光，则棋局也结束。
         # 将对手棋子吃光的一方获胜。
         ## 这里保留和棋手段
-        if user0 == 0:
-            return 1
-        elif user1 == 0:
-            return 0
-        elif ask_next_pos(list(board), 0) == [] and ask_next_pos(list(board), 1) == []:
+        if (not True in ask_next_pos(list(board), 0))  and (not True in ask_next_pos(list(board), 1)):
             if user1 > user0:
                 return 1
             elif user1 < user0:
@@ -425,7 +421,7 @@ class MCTS(object):
 
         # 临时set记录一次模拟的所有节点键，**包括之后模拟的落子信息**
 
-MyBoard = MCTS(1, [], [])
+
 
 # modify reversi_ai function to implement your algorithm
 
@@ -438,7 +434,7 @@ def reversi_ai(player: int, board: List[int], allow: List[bool]) -> Tuple[int, i
 
     return: 落子坐标元组
     '''
-    MyBoard.mctsPlayer, MyBoard.mctsBoard, MyBoard.mctsAllow = player, board[:], allow[:]
+    MyBoard = MCTS(player, board[:], allow[:])
 
     # 初始化搜索树
     if board.count(0) + board.count(1) == 4 or board.count(0) + board.count(1) == 5:
@@ -448,11 +444,11 @@ def reversi_ai(player: int, board: List[int], allow: List[bool]) -> Tuple[int, i
         MyBoard.plays[((player + 1) % 2,  -1, tuple(board[:]))] = 0
 
         # 初始化根节点之后可能落子的节点
-        for i in \
-        [(player, index, tuple(MyBoard.nextBoard(board[:], player, index))) 
-        for index, p in enumerate(allow[:]) if p == True]:
-            MyBoard.wins[i] = 0
-            MyBoard.plays[i] = 0
+        for t in \
+        [(player, i, tuple(MyBoard.nextBoard(board[:], player, i))) 
+        for i, p in enumerate(allow[:]) if p == True]:
+            MyBoard.wins[t] = 0
+            MyBoard.plays[t] = 0
 
     return index_to_coord(MyBoard.getMove())
 

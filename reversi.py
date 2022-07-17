@@ -10,10 +10,10 @@ os.environ["USE_SIMPLE_THREADED_LEVEL3"] = "1"
 
 
 # add your own imports below
-import time
+from time import perf_counter
 from random import choice
-import math
-import copy
+from math import sqrt, log
+from copy import deepcopy
 
 # define your helper functions here
 
@@ -63,7 +63,7 @@ class MCTS(object):
         self.plays = {} 
 
         # UCB1 评估函数的参数，可调节
-        self.C = 1.4 
+        self.C = 1.414 
 
     def nextBoard(self, board, player, position):
         '''
@@ -171,20 +171,6 @@ class MCTS(object):
 
         return board    
 
-    def legalPlay(self, board, player):
-        '''
-        tells where is legal to play
-
-        arguments: 
-        - board (list)
-        - player (int)
-
-        returns: allow (list)
-        '''
-
-        allow = ask_next_pos(board, player)
-        return allow
-
     def winner(self, board):
         '''
         tells who wins the match or still continuing
@@ -245,8 +231,8 @@ class MCTS(object):
             return legal.index(True)
 
         # 如果有多个可能的位置，在允许的时间里一直进行模拟
-        begin = time.perf_counter()
-        while time.perf_counter() - begin < self.calculationtime:
+        begin = perf_counter()
+        while perf_counter() - begin < self.calculationtime:
             self.simulation()
 
         # 寻找当前的所有允许的落子位置
@@ -268,7 +254,7 @@ class MCTS(object):
         '''
 
         # 拷贝一份树到函数里面
-        plays, wins = copy.deepcopy(self.plays), copy.deepcopy(self.wins)
+        plays, wins = deepcopy(self.plays), deepcopy(self.wins)
 
         # 取当前玩家
         player = self.mctsPlayer
@@ -284,7 +270,6 @@ class MCTS(object):
 
         # Playouts 实现
         # 合法落子
-        ## TODO simplify
         allow = self.mcstAllow[:]
         
         move = -1
@@ -308,12 +293,12 @@ class MCTS(object):
 
             # 如果所有的plays值都不为0，计算评估函数,并取最大的评估函数
             else:
-                logTotal = math.log(
+                logTotal = log(
                 float(sum(plays[(player, p, B)] for p, B in possibleMove)))
 
                 value, move, state = max(
                     ((float(wins[(player, p, B)]) / float(plays[(player, p, B)])) +
-                    self.C * math.sqrt(float(logTotal) / float(plays[(player, p, B)])), p, B)
+                    self.C * sqrt(float(logTotal) / float(plays[(player, p, B)])), p, B)
                     for p, B in possibleMove
                     )
 
@@ -324,7 +309,7 @@ class MCTS(object):
             player = (player + 1) % 2
 
             # 获取下一个玩家可能的落子点
-            allow = self.legalPlay(list(state), player)
+            allow = ask_next_pos(list(state), player)
 
             possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
             for i, p in enumerate(allow[:]) if p == True]
@@ -348,7 +333,7 @@ class MCTS(object):
                 player = (player + 1) % 2
 
                 # 获取下一个玩家可能的落子点
-                allow = self.legalPlay(list(state), player)
+                allow = ask_next_pos(list(state), player)
 
                 possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
                 for i, p in enumerate(allow[:]) if p == True]
@@ -374,7 +359,7 @@ class MCTS(object):
         # 非0值叶子，扩张
         else:
 
-            allow = self.legalPlay(list(state), player)
+            allow = ask_next_pos(list(state), player)
             for i in \
             [((player + 1) % 2, index, tuple(self.nextBoard(list(state), player, index))) 
             for index, p in enumerate(allow) if p]:
@@ -402,7 +387,7 @@ class MCTS(object):
                 player = (player + 1) % 2
 
                 # 获取下一个玩家可能的落子点
-                allow = self.legalPlay(list(state), player)
+                allow = ask_next_pos(list(state), player)
                 possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
                 for i, p in enumerate(allow) if p == True]
                 if len(possibleMove) > 0:
@@ -429,7 +414,7 @@ class MCTS(object):
 
 # modify reversi_ai function to implement your algorithm
 
-def reversi_ai(player: int, board: List[int], allow: List[bool]) -> Tuple[int, int]:
+def reversi_ai(player: int, board: List[int], allow: List[bool], MyBoard) -> Tuple[int, int]:
     '''
     AI 用户逻辑
     参数：player: 当前玩家编号（0 或者 1）
@@ -438,8 +423,8 @@ def reversi_ai(player: int, board: List[int], allow: List[bool]) -> Tuple[int, i
 
     return: 落子坐标元组
     '''
-    MyBoard = MCTS(player, board[:], allow[:])
-
+    
+    MyBoard.mctsplayer, MyBoard.mctsBoard, MyBoard.mcstAllow = player, board[:], allow[:]
 
     # 初始化搜索树
     if board.count(0) + board.count(1) == 4 or board.count(0) + board.count(1) == 5:
@@ -496,13 +481,14 @@ def start():
     循环入口
     '''
     read_buffer = sys.stdin.buffer
+    MyBoard = MCTS(1, [], [])
     while True:
         data = read_buffer.read(67)
         now_player = int(data.decode()[1])
         str_list = list(data.decode()[2:-1])
         board_list = [int(i) for i in str_list]
         next_list = ask_next_pos(board_list, now_player)
-        x, y = reversi_ai(now_player, board_list, next_list)
+        x, y = reversi_ai(now_player, board_list, next_list, MyBoard)
         send_opt(str(x)+str(y))
 
 if __name__ == '__main__':

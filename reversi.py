@@ -31,41 +31,7 @@ def index_to_coord(i: int) -> Tuple[int, int]:
     assert i >= 0 and i < 64
     return i >> 3, i & 7
 
-# class for restoration of board and do simulation.
-class MCTS(object):
-    '''
-    实现复盘功能，辅助模拟：
-    1. 给定当前棋盘数组，返回当前落子玩家
-    2. 给定当前棋盘数组与落子位置，返回新的棋盘数组
-    3. 给定当前棋盘数组，返回允许落子的位置下标的数组
-    4. 给定当前棋盘数组，返回对棋盘胜负的判断
-    
-    0. 需要实现模拟算法
-    '''
-    def __init__(self, player, board, allow):
-
-        # 存储棋盘数组
-        self.mctsBoard = board
-
-        # 存储玩家 int 0 or 1
-        self.mctsPlayer = player 
-
-        # 存储允许落子的点 list
-        self.mcstAllow = allow
-        # 存储玩家走秒
-        # 计算走秒时间
-        self.calculationtime = 2 
-
-        #节点信息
-        # 字典，键是（玩家编号，当前节点代表的落子位置, 落子后棋盘），值是获胜次数
-        self.wins = {} 
-        # 字典，键是（玩家编号，当前节点代表的落子位置， 落子后棋盘），值是触摸当前节点次数
-        self.plays = {} 
-
-        # UCB1 评估函数的参数，可调节
-        self.C = 1.414 
-
-    def nextBoard(self, board, player, position):
+def nextBoard(board, player, position):
         '''
         renew the board
 
@@ -171,7 +137,7 @@ class MCTS(object):
 
         return board    
 
-    def winner(self, board):
+def winner(board):
         '''
         tells who wins the match or still continuing
 
@@ -206,7 +172,39 @@ class MCTS(object):
         else: 
             return 2
 
+# class for restoration of board and do simulation.
+class MCTS(object):
+    '''
+    实现复盘功能，辅助模拟：
+    1. 给定当前棋盘数组，返回当前落子玩家
+    2. 给定当前棋盘数组与落子位置，返回新的棋盘数组
+    3. 给定当前棋盘数组，返回允许落子的位置下标的数组
+    4. 给定当前棋盘数组，返回对棋盘胜负的判断
+    
+    0. 需要实现模拟算法
+    '''
+    def __init__(self, player, board, allow):
 
+        # 存储棋盘数组
+        self.mctsBoard = board
+
+        # 存储玩家 int 0 or 1
+        self.mctsPlayer = player 
+
+        # 存储允许落子的点 list
+        self.mcstAllow = allow
+        # 存储玩家走秒
+        # 计算走秒时间
+        self.calculationtime = 2 
+
+        #节点信息
+        # 字典，键是（玩家编号，当前节点代表的落子位置, 落子后棋盘），值是获胜次数
+        self.wins = {} 
+        # 字典，键是（玩家编号，当前节点代表的落子位置， 落子后棋盘），值是触摸当前节点次数
+        self.plays = {} 
+
+        # UCB1 评估函数的参数，可调节
+        self.C = 1.414 
 
     def getMove(self):
         '''
@@ -236,7 +234,7 @@ class MCTS(object):
             self.simulation()
 
         # 寻找当前的所有允许的落子位置
-        possibleMove = [(i, tuple(self.nextBoard(self.mctsBoard[:], player, i))) 
+        possibleMove = [(i, tuple(nextBoard(self.mctsBoard[:], player, i))) 
         for i, p in enumerate(legal) if p == True]
 
         # 计算所有允许落子位置的胜率最大值，并记录下对应的落子点
@@ -276,7 +274,7 @@ class MCTS(object):
 
         # possibleMove装的是 [(合法落子的下标， 落子后的棋盘[i.e.: state]),...]
         # 当前节点的子节点
-        possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
+        possibleMove = [(i, tuple(nextBoard(list(state), player, i))) 
         for i, p in enumerate(allow[:]) if p == True]
 
         
@@ -288,8 +286,6 @@ class MCTS(object):
             if 0 in [plays.get((player, p, B)) for p, B in possibleMove]:
                 move, state = choice([(p, B) \
                 for p, B in possibleMove if plays[(player, p, B)] == 0])
-                
-
 
             # 如果所有的plays值都不为0，计算评估函数,并取最大的评估函数
             else:
@@ -311,7 +307,7 @@ class MCTS(object):
             # 获取下一个玩家可能的落子点
             allow = ask_next_pos(list(state), player)
 
-            possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
+            possibleMove = [(i, tuple(nextBoard(list(state), player, i))) 
             for i, p in enumerate(allow[:]) if p == True]
 
         
@@ -323,9 +319,9 @@ class MCTS(object):
             while True:
 
                 # 是否获胜（退出循环的判断标准）
-                winner = self.winner(state)
+                win = winner(state)
                 # 如果Monte Carlo结束，直接退出并进入算法第四步
-                if winner == 0 or winner == 1:
+                if win == 0 or win == 1:
                     break
 
                 # 如果没有获胜，则更新玩家编号, 
@@ -335,9 +331,10 @@ class MCTS(object):
                 # 获取下一个玩家可能的落子点
                 allow = ask_next_pos(list(state), player)
 
-                possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
-                for i, p in enumerate(allow[:]) if p == True]
+                possibleMove = [(i, tuple(nextBoard(list(state), player, i))) 
+                for i, p in enumerate(allow) if p == True]
 
+                # 注意，可能存在不能落子的点
                 if len(possibleMove) > 0:
                     move, state = choice(possibleMove)
                     visitedStates.add((player, move, state))
@@ -353,7 +350,7 @@ class MCTS(object):
                 self.plays[(player, move, state)] += 1 
 
                 # 如果当前节点所代表的玩家获胜，则获胜数也+1
-                if player == winner:
+                if player == win:
                     self.wins[(player, move, state)] += 1
 
         # 非0值叶子，扩张
@@ -361,12 +358,12 @@ class MCTS(object):
 
             allow = ask_next_pos(list(state), player)
             for i in \
-            [((player + 1) % 2, index, tuple(self.nextBoard(list(state), player, index))) 
+            [((player + 1) % 2, index, tuple(nextBoard(list(state), player, index))) 
             for index, p in enumerate(allow) if p]:
                 self.wins[i] = 0
                 self.plays[i] = 0
 
-            possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
+            possibleMove = [(i, tuple(nextBoard(list(state), player, i))) 
             for i, p in enumerate(allow) if p == True]
 
             possibleMove = [(p, B) for p, B in possibleMove if plays.get((player, p, B)) == 0]
@@ -377,9 +374,9 @@ class MCTS(object):
             while(True):
 
                 # 是否获胜（退出循环的判断标准）
-                winner = self.winner(state)
+                win = winner(state)
                 # 如果Monte Carlo结束，直接退出并进入算法第四步
-                if winner == 0 or winner == 1:
+                if win == 0 or win == 1:
                     break
 
                 # 如果没有获胜，则更新玩家编号, 
@@ -388,8 +385,10 @@ class MCTS(object):
 
                 # 获取下一个玩家可能的落子点
                 allow = ask_next_pos(list(state), player)
-                possibleMove = [(i, tuple(self.nextBoard(list(state), player, i))) 
+                possibleMove = [(i, tuple(nextBoard(list(state), player, i))) 
                 for i, p in enumerate(allow) if p == True]
+
+                # 注意，可能存在不能落子的点
                 if len(possibleMove) > 0:
                     move, state = choice(possibleMove)
                     visitedStates.add((player, move, state))
@@ -405,7 +404,7 @@ class MCTS(object):
                 self.plays[(player, move, state)] += 1 
 
                 # 如果当前节点所代表的玩家获胜，则获胜数也+1
-                if player == winner:
+                if player == win:
                     self.wins[(player, move, state)] += 1
 
         # 临时set记录一次模拟的所有节点键，**包括之后模拟的落子信息**
@@ -434,7 +433,7 @@ def reversi_ai(player: int, board: List[int], allow: List[bool], MyBoard) -> Tup
 
         # 初始化根节点之后可能落子的节点
         for t in \
-        [(player, i, tuple(MyBoard.nextBoard(board, player, i))) 
+        [(player, i, tuple(nextBoard(board, player, i))) 
         for i, p in enumerate(allow[:]) if p == True]:
             MyBoard.wins[t] = 0
             MyBoard.plays[t] = 0

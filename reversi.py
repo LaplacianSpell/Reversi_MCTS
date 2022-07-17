@@ -40,7 +40,7 @@ def nextBoard(board, player, position):
         - player (int)
         - position (int)
 
-        returns: board (list)
+        returns: board (tuple)
         '''
         board[position] = player
         againstPlayer = (player + 1) % 2
@@ -135,7 +135,7 @@ def nextBoard(board, player, position):
                 for yagainst in range(y + 1, site[1], 1):
                     board[coord_to_index(site[0], yagainst)] = player
 
-        return board    
+        return tuple(board)    
 
 def winner(board):
         '''
@@ -234,7 +234,7 @@ class MCTS(object):
             self.simulation()
 
         # 寻找当前的所有允许的落子位置
-        possibleMove = [(i, tuple(nextBoard(self.mctsBoard[:], player, i))) 
+        possibleMove = [(i, nextBoard(self.mctsBoard[:], player, i)) 
         for i, p in enumerate(legal) if p == True]
 
         # 计算所有允许落子位置的胜率最大值，并记录下对应的落子点
@@ -258,12 +258,13 @@ class MCTS(object):
         player = self.mctsPlayer
 
         # 取当前棋盘
-        state = tuple(self.mctsBoard)
+        statelist = self.mctsBoard[:]
+        state = tuple(statelist)
 
         # 下面是函数内的辅助数据
         # 一个set，装从当前状况（根节点）开始，拜访过的节点
         # 也就是所谓**主路径**，相当于一个cache
-        # 之后在树里面信息，需要根据他更新，不在的直接跳过
+        # 之后在树里面信息，需要根据他更新，不在树里面的直接跳过
         visitedStates = set()
 
         # Playouts 实现
@@ -273,53 +274,77 @@ class MCTS(object):
         move = -1
 
         # possibleMove装的是 [(合法落子的下标， 落子后的棋盘[i.e.: state]),...]
-        # 当前节点的子节点
-        possibleMove = [(i, tuple(nextBoard(list(state), player, i))) 
-        for i, p in enumerate(allow[:]) if p == True]
+        # 现在我们面对的是state棋盘，当前玩家是player，即我们所处的节点是
+        # （player + 1 mod 2，下于某个点，state）
+        # 下面是Query这个点的子节点（可能落子点，落子之后棋盘）
+        possibleMove = [(i, nextBoard(statelist, player, i)) 
+        for i, p in enumerate(allow) if p == True]
 
         
         # 此时执行第一步,即使用UCB1算法
         # 看看有没有到叶子节点（没有子节点的节点）
-        ## 如果是空的，返回？
-        while None not in [plays.get((player, p, B)) for p, B in possibleMove]:
+
+        # 装的是[（可能落子点，落子之后棋盘）...]是不是都在里面
+        tempList = [plays.get((player, p, B)) for p, B in possibleMove]
+
+        # 如果在里面（事实上就是子节点都拿进来了）
+        while None not in tempList:
+
             # 子节点中是否有plays为0的，如果有，她的UCB1为Inf，进入特定子节点
-            if 0 in [plays.get((player, p, B)) for p, B in possibleMove]:
+            if 0 in tempList:
                 move, state = choice([(p, B) \
                 for p, B in possibleMove if plays[(player, p, B)] == 0])
+                statelist = list(state)
 
             # 如果所有的plays值都不为0，计算评估函数,并取最大的评估函数
             else:
                 logTotal = log(
-                float(sum(plays[(player, p, B)] for p, B in possibleMove)))
+                (sum(plays[(player, p, B)] for p, B in possibleMove)))
 
                 value, move, state = max(
-                    ((float(wins[(player, p, B)]) / float(plays[(player, p, B)])) +
-                    self.C * sqrt(float(logTotal) / float(plays[(player, p, B)])), p, B)
+                    (((wins[(player, p, B)]) / (plays[(player, p, B)])) +
+                    self.C * sqrt((logTotal) / (plays[(player, p, B)])), p, B)
                     for p, B in possibleMove
                     )
+                statelist = list(state)
 
             # 并且将状态装入cache
+            # 装入的是（子节点玩家，下的位置，状态）
+            # 同时state已经在上面更新了
             visitedStates.add((player, move, state))
 
-            # 更新玩家编号, 
+            # 玩家编号,在下面更新
+            # 此时，就是一个新的player，面对着上一个player在上面代码算出的
+            # move上落子，获得的新的棋盘状态为state
+            # 即进入某一个子节点
             player = (player + 1) % 2
 
             # 获取下一个玩家可能的落子点
-            allow = ask_next_pos(list(state), player)
+            allow = ask_next_pos(statelist, player)
 
-            possibleMove = [(i, tuple(nextBoard(list(state), player, i))) 
-            for i, p in enumerate(allow[:]) if p == True]
+            possibleMove = [(i, nextBoard(statelist, player, i)) 
+            for i, p in enumerate(allow) if p == True]
+
+            tempList = [plays.get((player, p, B)) for p, B in possibleMove]
 
         
         # 0值叶子
+        # 如果新的player可能的落子点都不在树里
         # 此时，直接Monte Carlo到底
-        # 先还原回来
+        # 首先判断子节点的值是什么，即上一个player在move上落子，算出的state这个key对应的值
+
         player = (player + 1) % 2
+
+        #零值节点
         if plays.get((player, move, state), -1) == 0:
+
+            # 直接Montecarlo
             while True:
 
                 # 是否获胜（退出循环的判断标准）
+                # 不用担心没有装进cache去，事实上这个节点在上一个block就装进cache了
                 win = winner(state)
+
                 # 如果Monte Carlo结束，直接退出并进入算法第四步
                 if win == 0 or win == 1:
                     break
@@ -329,15 +354,19 @@ class MCTS(object):
                 player = (player + 1) % 2
 
                 # 获取下一个玩家可能的落子点
-                allow = ask_next_pos(list(state), player)
-
-                possibleMove = [(i, tuple(nextBoard(list(state), player, i))) 
-                for i, p in enumerate(allow) if p == True]
+                allow = ask_next_pos(statelist, player)
 
                 # 注意，可能存在不能落子的点
-                if len(possibleMove) > 0:
-                    move, state = choice(possibleMove)
-                    visitedStates.add((player, move, state))
+                if True not in allow:
+                    continue
+                
+
+                possibleMove = [(i, nextBoard(statelist, player, i)) 
+                for i, p in enumerate(allow) if p == True]
+
+                move, state = choice(possibleMove)
+                visitedStates.add((player, move, state))
+                statelist = list(state)
             
             # 这一步是UCT算法的第四步：反向传播
             for player, move, state in visitedStates:
@@ -354,21 +383,59 @@ class MCTS(object):
                     self.wins[(player, move, state)] += 1
 
         # 非0值叶子，扩张
+        # 此时player为**非零叶子对应的玩家**
+        # move为这个叶子对应的该玩家落子
+        # state为这个叶子对应的该玩家落子后状态
+        # 这个叶子已经进cache了
         else:
+            
+            # 现在又换回这个叶子过了之后，下一步的玩家可能的落子
+            player = (player + 1) % 2
+            allow = ask_next_pos(statelist, player)
 
-            allow = ask_next_pos(list(state), player)
-            for i in \
-            [((player + 1) % 2, index, tuple(nextBoard(list(state), player, index))) 
-            for index, p in enumerate(allow) if p]:
-                self.wins[i] = 0
-                self.plays[i] = 0
 
-            possibleMove = [(i, tuple(nextBoard(list(state), player, i))) 
-            for i, p in enumerate(allow) if p == True]
+            # 如果长度为0，说明下一步的玩家不能落子
+            # 只有下一步的玩家可以才会扩张，执行下面的步骤
+            # 如果不能，则玩家再变化
+            if True in allow:
+                 
+                for i in \
+                [(player, index, nextBoard(statelist, player, index)) 
+                for index, p in enumerate(allow) if p]:
+                    self.wins[i] = 0
+                    self.plays[i] = 0
 
-            possibleMove = [(p, B) for p, B in possibleMove if plays.get((player, p, B)) == 0]
-            if len(possibleMove) > 0:
-               move, state = choice(possibleMove)
+                # 可能的取值，在上一步已经对所有的都变成0了
+                possibleMove = [(i, nextBoard(statelist, player, i)) 
+                for i, p in enumerate(allow) if p == True]
+
+                # 在树中的取值
+                # possibleMove = [(p, B) for p, B in possibleMove if plays.get((player, p, B)) == 0
+                move, state = choice(possibleMove)
+                statelist = list(state)
+            else:
+                player = (player + 1) % 2
+                allow = ask_next_pos(statelist, player)
+
+                # 这里还需要再判断一次，因为可能已经到获胜位置了，即二者都不能落子
+                # 此时只需放心交给winner就好
+                if True in allow:
+                 
+                    for i in \
+                    [(player, index, nextBoard(statelist, player, index)) 
+                    for index, p in enumerate(allow) if p]:
+                        self.wins[i] = 0
+                        self.plays[i] = 0
+
+                    # 可能的取值，在上一步已经对所有的都变成0了
+                    possibleMove = [(i, nextBoard(statelist, player, i)) 
+                    for i, p in enumerate(allow) if p == True]
+
+                    # 在树中的取值
+                    # possibleMove = [(p, B) for p, B in possibleMove if plays.get((player, p, B)) == 0
+                    move, state = choice(possibleMove)
+                    statelist = list(state)
+
 
             # 接着进行Monte Carlo
             while(True):
@@ -384,14 +451,18 @@ class MCTS(object):
                 player = (player + 1) % 2
 
                 # 获取下一个玩家可能的落子点
-                allow = ask_next_pos(list(state), player)
-                possibleMove = [(i, tuple(nextBoard(list(state), player, i))) 
-                for i, p in enumerate(allow) if p == True]
+                allow = ask_next_pos(statelist, player)
 
                 # 注意，可能存在不能落子的点
-                if len(possibleMove) > 0:
-                    move, state = choice(possibleMove)
-                    visitedStates.add((player, move, state))
+                if True not in allow:
+                    continue
+
+                possibleMove = [(i, nextBoard(statelist, player, i)) 
+                for i, p in enumerate(allow) if p == True]
+
+                move, state = choice(possibleMove)
+                visitedStates.add((player, move, state))
+                statelist = list(state)
 
             # 这一步是UCT算法的第四步：反向传播
             for player, move, state in visitedStates:
@@ -433,8 +504,8 @@ def reversi_ai(player: int, board: List[int], allow: List[bool], MyBoard) -> Tup
 
         # 初始化根节点之后可能落子的节点
         for t in \
-        [(player, i, tuple(nextBoard(board, player, i))) 
-        for i, p in enumerate(allow[:]) if p == True]:
+        [(player, i, nextBoard(board, player, i))
+        for i, p in enumerate(allow) if p == True]:
             MyBoard.wins[t] = 0
             MyBoard.plays[t] = 0
 

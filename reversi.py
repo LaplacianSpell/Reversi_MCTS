@@ -195,7 +195,7 @@ class MCTS(object):
         self.mcstAllow = allow
         # 存储玩家走秒
         # 计算走秒时间
-        self.calculationtime = 2 
+        self.calculationtime = 6 
 
         #节点信息
         # 字典，键是（玩家编号，当前节点代表的落子位置, 落子后棋盘），值是获胜次数
@@ -204,7 +204,7 @@ class MCTS(object):
         self.plays = {} 
 
         # UCB1 评估函数的参数，可调节
-        self.C = 1.414 
+        self.C = 1.38 
 
     def getMove(self):
         '''
@@ -337,51 +337,7 @@ class MCTS(object):
 
         #零值节点
         if plays.get((player, move, state), -1) == 0:
-
-            # 直接Montecarlo
-            while True:
-
-                # 是否获胜（退出循环的判断标准）
-                # 不用担心没有装进cache去，事实上这个节点在上一个block就装进cache了
-                win = winner(statelist[:])
-
-                # 如果Monte Carlo结束，直接退出并进入算法第四步
-                if win == 0 or win == 1:
-                    break
-
-                # 如果没有获胜，则更新玩家编号, 
-                # 并且将下一个状态装入cache
-                player = (player + 1) % 2
-
-                # 获取下一个玩家可能的落子点
-                allow = ask_next_pos(statelist[:], player)
-
-                # 注意，可能存在不能落子的点
-                if True not in allow:
-                    continue
-                
-
-                possibleMove = [(i, nextBoard(statelist, player, i)) 
-                for i, p in enumerate(allow) if p == True]
-
-                move, state = choice(possibleMove)
-                visitedStates.add((player, move, state))
-                statelist = list(state)
-            
-            # 这一步是UCT算法的第四步：反向传播
-            for player, move, state in visitedStates:
-
-                # 只有已经记录在plays中的节点才更新
-                if (player, move, state) not in self.plays: 
-                    continue
-
-                # 如果在plays中，则玩过的局+1
-                self.plays[(player, move, state)] += 1 
-
-                # 如果当前节点所代表的玩家获胜，则获胜数也+1
-                if player == win:
-                    self.wins[(player, move, state)] += 1
-
+            pass
         # 非0值叶子，扩张
         # 此时player为**非零叶子对应的玩家**
         # move为这个叶子对应的该玩家落子
@@ -437,46 +393,50 @@ class MCTS(object):
                     statelist = list(state)
 
 
-            # 接着进行Monte Carlo
-            while(True):
 
-                # 是否获胜（退出循环的判断标准）
-                win = winner(statelist[:])
-                # 如果Monte Carlo结束，直接退出并进入算法第四步
-                if win == 0 or win == 1:
-                    break
+        # 直接Montecarlo
+        while True:
 
-                # 如果没有获胜，则更新玩家编号, 
-                # 并且将下一个状态装入cache
-                player = (player + 1) % 2
+            # 是否获胜（退出循环的判断标准）
+            # 不用担心没有装进cache去，事实上这个节点在上一个block就装进cache了
+            win = winner(statelist[:])
 
-                # 获取下一个玩家可能的落子点
-                allow = ask_next_pos(statelist[:], player)
+            # 如果Monte Carlo结束，直接退出并进入算法第四步
+            if win == 0 or win == 1:
+                break
 
-                # 注意，可能存在不能落子的点
-                if True not in allow:
-                    continue
+            # 如果没有获胜，则更新玩家编号, 
+            # 并且将下一个状态装入cache
+            player = (player + 1) % 2
 
-                possibleMove = [(i, nextBoard(statelist[:], player, i)) 
-                for i, p in enumerate(allow) if p == True]
+            # 获取下一个玩家可能的落子点
+            allow = ask_next_pos(statelist[:], player)
 
-                move, state = choice(possibleMove)
-                visitedStates.add((player, move, state))
-                statelist = list(state)
+            # 注意，可能存在不能落子的点
+            if True not in allow:
+                continue
+                
 
-            # 这一步是UCT算法的第四步：反向传播
-            for player, move, state in visitedStates:
+            possibleMove = [(i, nextBoard(statelist[:], player, i)) 
+            for i, p in enumerate(allow) if p == True]
 
-                # 只有已经记录在plays中的节点才更新
-                if (player, move, state) not in self.plays: 
-                    continue
+            move, state = choice(possibleMove)
+            visitedStates.add((player, move, state))
+            statelist = list(state)
+            
+        # 这一步是UCT算法的第四步：反向传播
+        for player, move, state in visitedStates:
 
-                # 如果在plays中，则玩过的局+1
-                self.plays[(player, move, state)] += 1 
+            # 只有已经记录在plays中的节点才更新
+            if (player, move, state) not in self.plays: 
+                continue
 
-                # 如果当前节点所代表的玩家获胜，则获胜数也+1
-                if player == win:
-                    self.wins[(player, move, state)] += 1
+            # 如果在plays中，则玩过的局+1
+            self.plays[(player, move, state)] += 1 
+
+            # 如果当前节点所代表的玩家获胜，则获胜数也+1
+            if player == win:
+                self.wins[(player, move, state)] += 1
 
         # 临时set记录一次模拟的所有节点键，**包括之后模拟的落子信息**
 

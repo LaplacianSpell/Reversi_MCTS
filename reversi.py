@@ -163,7 +163,7 @@ def winner(board):
         # 在棋盘还没有下满时，如果一方的棋子已经被对方吃光，则棋局也结束。
         # 将对手棋子吃光的一方获胜。
         ## 这里保留和棋手段
-        if (not True in ask_next_pos(list(board), 0))  and (not True in ask_next_pos(list(board), 1)):
+        if (not True in ask_next_pos(board, 0))  and (not True in ask_next_pos(board, 1)):
             if user1 > user0:
                 return 1
             elif user1 < user0:
@@ -277,7 +277,7 @@ class MCTS(object):
         # 现在我们面对的是state棋盘，当前玩家是player，即我们所处的节点是
         # （player + 1 mod 2，下于某个点，state）
         # 下面是Query这个点的子节点（可能落子点，落子之后棋盘）
-        possibleMove = [(i, nextBoard(statelist, player, i)) 
+        possibleMove = [(i, nextBoard(statelist[:], player, i)) 
         for i, p in enumerate(allow) if p == True]
 
         
@@ -322,7 +322,7 @@ class MCTS(object):
             # 获取下一个玩家可能的落子点
             allow = ask_next_pos(statelist, player)
 
-            possibleMove = [(i, nextBoard(statelist, player, i)) 
+            possibleMove = [(i, nextBoard(statelist[:], player, i)) 
             for i, p in enumerate(allow) if p == True]
 
             tempList = [plays.get((player, p, B)) for p, B in possibleMove]
@@ -343,7 +343,7 @@ class MCTS(object):
 
                 # 是否获胜（退出循环的判断标准）
                 # 不用担心没有装进cache去，事实上这个节点在上一个block就装进cache了
-                win = winner(state)
+                win = winner(statelist[:])
 
                 # 如果Monte Carlo结束，直接退出并进入算法第四步
                 if win == 0 or win == 1:
@@ -354,7 +354,7 @@ class MCTS(object):
                 player = (player + 1) % 2
 
                 # 获取下一个玩家可能的落子点
-                allow = ask_next_pos(statelist, player)
+                allow = ask_next_pos(statelist[:], player)
 
                 # 注意，可能存在不能落子的点
                 if True not in allow:
@@ -391,7 +391,7 @@ class MCTS(object):
             
             # 现在又换回这个叶子过了之后，下一步的玩家可能的落子
             player = (player + 1) % 2
-            allow = ask_next_pos(statelist, player)
+            allow = ask_next_pos(statelist[:], player)
 
 
             # 如果长度为0，说明下一步的玩家不能落子
@@ -400,13 +400,13 @@ class MCTS(object):
             if True in allow:
                  
                 for i in \
-                [(player, index, nextBoard(statelist, player, index)) 
+                [(player, index, nextBoard(statelist[:], player, index)) 
                 for index, p in enumerate(allow) if p]:
                     self.wins[i] = 0
                     self.plays[i] = 0
 
                 # 可能的取值，在上一步已经对所有的都变成0了
-                possibleMove = [(i, nextBoard(statelist, player, i)) 
+                possibleMove = [(i, nextBoard(statelist[:], player, i)) 
                 for i, p in enumerate(allow) if p == True]
 
                 # 在树中的取值
@@ -415,20 +415,20 @@ class MCTS(object):
                 statelist = list(state)
             else:
                 player = (player + 1) % 2
-                allow = ask_next_pos(statelist, player)
+                allow = ask_next_pos(statelist[:], player)
 
                 # 这里还需要再判断一次，因为可能已经到获胜位置了，即二者都不能落子
                 # 此时只需放心交给winner就好
                 if True in allow:
                  
                     for i in \
-                    [(player, index, nextBoard(statelist, player, index)) 
+                    [(player, index, nextBoard(statelist[:], player, index)) 
                     for index, p in enumerate(allow) if p]:
                         self.wins[i] = 0
                         self.plays[i] = 0
 
                     # 可能的取值，在上一步已经对所有的都变成0了
-                    possibleMove = [(i, nextBoard(statelist, player, i)) 
+                    possibleMove = [(i, nextBoard(statelist[:], player, i)) 
                     for i, p in enumerate(allow) if p == True]
 
                     # 在树中的取值
@@ -441,7 +441,7 @@ class MCTS(object):
             while(True):
 
                 # 是否获胜（退出循环的判断标准）
-                win = winner(state)
+                win = winner(statelist[:])
                 # 如果Monte Carlo结束，直接退出并进入算法第四步
                 if win == 0 or win == 1:
                     break
@@ -451,13 +451,13 @@ class MCTS(object):
                 player = (player + 1) % 2
 
                 # 获取下一个玩家可能的落子点
-                allow = ask_next_pos(statelist, player)
+                allow = ask_next_pos(statelist[:], player)
 
                 # 注意，可能存在不能落子的点
                 if True not in allow:
                     continue
 
-                possibleMove = [(i, nextBoard(statelist, player, i)) 
+                possibleMove = [(i, nextBoard(statelist[:], player, i)) 
                 for i, p in enumerate(allow) if p == True]
 
                 move, state = choice(possibleMove)
@@ -504,7 +504,7 @@ def reversi_ai(player: int, board: List[int], allow: List[bool], MyBoard) -> Tup
 
         # 初始化根节点之后可能落子的节点
         for t in \
-        [(player, i, nextBoard(board, player, i))
+        [(player, i, nextBoard(board[:], player, i))
         for i, p in enumerate(allow) if p == True]:
             MyBoard.wins[t] = 0
             MyBoard.plays[t] = 0

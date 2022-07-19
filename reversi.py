@@ -288,7 +288,7 @@ class MCTS(object):
         tempList = [plays.get((player, p, B)) for p, B in possibleMove]
 
         # 如果在里面（事实上就是子节点都拿进来了）
-        while None not in tempList:
+        while len(tempList) != 0 and None not in tempList:
 
             # 子节点中是否有plays为0的，如果有，她的UCB1为Inf，进入特定子节点
             if 0 in tempList:

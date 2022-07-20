@@ -168,6 +168,8 @@ def winner(board):
                 return 1
             elif user1 < user0:
                 return 0
+            elif user1 == user0:
+                return 3
 
         else: 
             return 2
@@ -195,7 +197,7 @@ class MCTS(object):
         self.mcstAllow = allow
         # 存储玩家走秒
         # 计算走秒时间
-        self.calculationtime = 6 
+        self.calculationtime = 3.9 
 
         #节点信息
         # 字典，键是（玩家编号，当前节点代表的落子位置, 落子后棋盘），值是获胜次数
@@ -402,7 +404,9 @@ class MCTS(object):
             win = winner(statelist[:])
 
             # 如果Monte Carlo结束，直接退出并进入算法第四步
-            if win == 0 or win == 1:
+            if win == 0 or win == 1 or win == 3:
+                if win == 3:
+                    win = (self.mctsPlayer + 1) % 2
                 break
 
             # 如果没有获胜，则更新玩家编号, 

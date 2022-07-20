@@ -11,11 +11,203 @@ os.environ["USE_SIMPLE_THREADED_LEVEL3"] = "1"
 
 # add your own imports below
 from time import perf_counter
-from random import choice
 from math import sqrt, log
 from copy import deepcopy
 
 # define your helper functions here
+
+def nextPosition(board, player):
+    '''
+    返回player在当前board下的可落子点
+    '''
+
+    # 没有子的地方
+    empty = [i for i, p in enumerate(board) if p == 2]
+    legal = [False] * 64
+    
+    againstPlayer = (player + 1) % 2
+    
+    for i in empty:
+        # 标记：右上，右中，右下
+        rightMark = [1, 1, 1]
+        leftMark = [1, 1, 1]
+        # 标记： 左上，左中，左下
+        
+        # 标记上
+        up = 1
+
+        # 标记下
+        down = 1
+
+        # 0：方向寻找关闭状态
+        # 1: 正常状态
+        # 2：当第一次遇见了对方棋子时，进入的寻找第一状态
+        # 3：如果再次遇见我们棋子，进入寻找完毕状态
+
+        site = index_to_coord(i)
+        for x in range(site[0] + 1, 8):
+
+            if rightMark[1]:
+
+                # 这个方向遇到了对方的棋子，需要继续搜索, 看是边界、空白还是我们的棋子
+                if board[coord_to_index(x, site[1])] == againstPlayer:
+                    rightMark[1] = 2
+
+                # 这个方向遇见空的，不用再搜索这个方向了
+                elif board[coord_to_index(x, site[1])] == 2:
+                    rightMark[1] = 0
+                
+                # 这个方向遇见自己的棋子，也不需要搜索了
+                # 或者是找到了
+                else:
+                    if rightMark[1] == 1:
+                        rightMark[1] = 0
+                    else:
+                        rightMark[1] = 3
+                        break
+
+            if rightMark[0] and x - site[0] + site[1] < 8:
+                if board[coord_to_index(x, x - site[0] + site[1])] == againstPlayer:
+                    rightMark[0] = 2
+                elif board[coord_to_index(x, x - site[0] + site[1])] == 2:
+                    rightMark[0] = 0
+                else:
+                    if rightMark[0] == 1:
+                        rightMark[0] = 0
+                    else:
+                        rightMark[0] = 3
+                        break
+
+            if rightMark[2] and site[0] - x + site[1] >= 0:
+                if board[coord_to_index(x, site[0] - x + site[1])] == againstPlayer:
+                    rightMark[2] = 2
+                elif board[coord_to_index(x, site[0] - x + site[1])] == 2:
+                    rightMark[2] = 0
+                else:
+                    if rightMark[2] == 1:
+                        rightMark[2] = 0
+                    else:
+                        rightMark[2] = 3
+                        break
+            # 如果所有搜索方向都已经关闭
+            if sum(rightMark) == 0:
+                break
+        
+        if 3 in rightMark:
+            legal[i] = True
+            continue
+
+        for x in range(site[0] - 1, -1, -1):
+
+            if leftMark[1]:
+                if board[coord_to_index(x, site[1])] == againstPlayer:
+                    leftMark[1] = 2
+                elif board[coord_to_index(x, site[1])] == 2:
+                    leftMark[1] = 0
+                else:
+                    if leftMark[1] == 1:
+                        leftMark[1] = 0
+                    else:
+                        leftMark[1] = 3
+                        break
+            if leftMark[0] and site[0] - x + site[1] < 8:
+                if board[coord_to_index(x, site[0] - x + site[1])] == againstPlayer:
+                    leftMark[0] = 2
+                elif board[coord_to_index(x, site[0] - x + site[1])] == 2:
+                    leftMark[0] = 0
+                else:
+                    if leftMark[0] == 1:
+                        leftMark[0] = 0
+                    else:
+                        leftMark[0] = 3
+                        break
+            if leftMark[2] and - site[0] + x + site[1] >= 0:
+                if board[coord_to_index(x, - site[0] + x + site[1])] == againstPlayer:
+                    leftMark[2] = 2
+                elif board[coord_to_index(x, - site[0] + x + site[1])] == 2:
+                    leftMark[2] = 0
+                else:
+                    if leftMark[2] == 1:
+                        leftMark[2] = 0
+                    else:
+                        leftMark[2] = 3
+                        break
+            if sum(leftMark) == 0:
+                break
+        
+        if 3 in leftMark:
+            legal[i] = True
+            continue
+
+        for y in range(site[1] + 1, 8):
+            if board[coord_to_index(site[0], y)] == againstPlayer:
+                up = 2
+            elif board[coord_to_index(site[0], y)] == 2:
+                up = 0
+                break
+            else:
+                if up == 1:
+                    up = 0
+                    break
+                else:
+                    up = 3
+                    break
+        
+        if 3 == up:
+            legal[i] = True
+            continue
+
+
+        for y in range(site[1] - 1, -1, -1):
+            if board[coord_to_index(site[0], y)] == againstPlayer:
+                down = 2
+            elif board[coord_to_index(site[0], y)] == 2:
+                down = 0
+                break
+            else:
+                if down == 1:
+                    down = 0
+                    break
+                else:
+                    down = 3
+                    break
+
+        if 3 == down:
+            legal[i] = True
+
+    return legal
+
+
+def weightfunction(allow, board, player):
+    '''
+    传入允许落子的棋盘，传出允许落子的各个点的权重
+    '''
+    weightdict = {}
+    Vmap = [500, -25, 10, 5, 5, 10, -25, 500,
+            -25, -45, 1, 1, 1, 1, -45, -25,
+            10, 1, 3, 2, 2, 3, 1, 10,
+            5, 1, 2, 1, 1, 2, 1, 5,
+            5, 1, 2, 1, 1, 2, 1, 5,
+            10, 1, 3, 2, 2, 3, 1, 10,
+            -25, -45, 1, 1, 1, 1, -45, -25,
+            500, -25, 10, 5, 5, 10, -25, 500]
+
+    possibleMove = [(i, nextBoard(board, player, i)) 
+        for i, p in enumerate(allow) if p == True]
+
+    Weight = 0
+
+    for i in possibleMove:
+        Weight = 0
+        for p in i[1]:
+            if p == player:
+                Weight += Vmap[i[0]]
+            elif p == ((player + 1) % 2):
+                Weight -= Vmap[i[0]]
+        weightdict[i[0]] = Weight
+
+    return weightdict
+    
 
 def coord_to_index(x, y):
     '''
@@ -55,11 +247,18 @@ def nextBoard(board, player, position):
 
         for x in range(site[0] + 1, 8):
 
+            # 判断右边
             if rightMark[1]:
+
+                # 如果右边遇见对手，那么继续搜索
                 if board[coord_to_index(x, site[1])] == againstPlayer:
                     pass
+                
+                # 如果空的，那么直接关闭这条路径的搜索
                 elif board[coord_to_index(x, site[1])] == 2:
                     rightMark[1] = 0
+                
+                # 如果又遇到自己的棋子，翻个个
                 else:
                     for xagainst in range(x - 1, site[0], -1):
                         board[coord_to_index(xagainst, site[1])] = player
@@ -163,7 +362,7 @@ def winner(board):
         # 在棋盘还没有下满时，如果一方的棋子已经被对方吃光，则棋局也结束。
         # 将对手棋子吃光的一方获胜。
         ## 这里保留和棋手段
-        if (not True in ask_next_pos(board, 0))  and (not True in ask_next_pos(board, 1)):
+        if (not True in nextPosition(board, 0))  and (not True in nextPosition(board, 1)):
             if user1 > user0:
                 return 1
             elif user1 < user0:
@@ -185,7 +384,7 @@ class MCTS(object):
     
     0. 需要实现模拟算法
     '''
-    def __init__(self, player, board, allow):
+    def __init__(self, player, board, allow, roll):
 
         # 存储棋盘数组
         self.mctsBoard = board
@@ -197,7 +396,7 @@ class MCTS(object):
         self.mcstAllow = allow
         # 存储玩家走秒
         # 计算走秒时间
-        self.calculationtime = 3.9 
+        self.calculationtime = 2.8
 
         #节点信息
         # 字典，键是（玩家编号，当前节点代表的落子位置, 落子后棋盘），值是获胜次数
@@ -206,8 +405,10 @@ class MCTS(object):
         self.plays = {} 
 
         # UCB1 评估函数的参数，可调节
-        self.C = 1.38 
+        self.C = 1.414 
 
+        # 局
+        self.roll = 1
     def getMove(self):
         '''
         the main realize of the game AI
@@ -240,10 +441,13 @@ class MCTS(object):
         for i, p in enumerate(legal) if p == True]
 
         # 计算所有允许落子位置的胜率最大值，并记录下对应的落子点
-        winProbability, move = max (
-            (self.wins.get((player, p, S), 0) / self.plays.get((player, p, S), 1), p) 
-            if (self.plays.get((player, p, S), 1), p) == 0 else (1, p)
-            for p, S in possibleMove
+        if self.roll <= 4:
+            weightdict = weightfunction(legal, self.mctsBoard[:], player)
+            weight, move, state = max([(weightdict[p], p, B) for p, B in possibleMove])
+        else: 
+             # 计算所有允许落子位置的胜率最大值，并记录下对应的落子点
+            winProbability, move = max (
+            (self.plays.get((player, p, S), 1), p) for p, S in possibleMove
         )
 
         return move
@@ -294,8 +498,9 @@ class MCTS(object):
 
             # 子节点中是否有plays为0的，如果有，她的UCB1为Inf，进入特定子节点
             if 0 in tempList:
-                move, state = choice([(p, B) \
-                for p, B in possibleMove if plays[(player, p, B)] == 0])
+                weightdict = weightfunction(allow, statelist[:], player)
+                weight, move, state = max([(weightdict[p], p, B) for p, B in [(p, B) \
+                for p, B in possibleMove if plays[(player, p, B)] == 0]] )
                 statelist = list(state)
 
             # 如果所有的plays值都不为0，计算评估函数,并取最大的评估函数
@@ -322,7 +527,7 @@ class MCTS(object):
             player = (player + 1) % 2
 
             # 获取下一个玩家可能的落子点
-            allow = ask_next_pos(statelist, player)
+            allow = nextPosition(statelist, player)
 
             possibleMove = [(i, nextBoard(statelist[:], player, i)) 
             for i, p in enumerate(allow) if p == True]
@@ -349,7 +554,7 @@ class MCTS(object):
             
             # 现在又换回这个叶子过了之后，下一步的玩家可能的落子
             player = (player + 1) % 2
-            allow = ask_next_pos(statelist[:], player)
+            allow = nextPosition(statelist[:], player)
 
 
             # 如果长度为0，说明下一步的玩家不能落子
@@ -369,11 +574,12 @@ class MCTS(object):
 
                 # 在树中的取值
                 # possibleMove = [(p, B) for p, B in possibleMove if plays.get((player, p, B)) == 0
-                move, state = choice(possibleMove)
+                weightdict = weightfunction(allow, statelist[:], player)
+                weight, move, state = max([(weightdict[p], p, B) for p, B in possibleMove])
                 statelist = list(state)
             else:
                 player = (player + 1) % 2
-                allow = ask_next_pos(statelist[:], player)
+                allow = nextPosition(statelist[:], player)
 
                 # 这里还需要再判断一次，因为可能已经到获胜位置了，即二者都不能落子
                 # 此时只需放心交给winner就好
@@ -391,7 +597,8 @@ class MCTS(object):
 
                     # 在树中的取值
                     # possibleMove = [(p, B) for p, B in possibleMove if plays.get((player, p, B)) == 0
-                    move, state = choice(possibleMove)
+                    weightdict = weightfunction(allow, statelist[:], player)
+                    weight, move, state = max([(weightdict[p], p, B) for p, B in possibleMove])
                     statelist = list(state)
 
 
@@ -414,7 +621,7 @@ class MCTS(object):
             player = (player + 1) % 2
 
             # 获取下一个玩家可能的落子点
-            allow = ask_next_pos(statelist[:], player)
+            allow = nextPosition(statelist[:], player)
 
             # 注意，可能存在不能落子的点
             if True not in allow:
@@ -424,7 +631,10 @@ class MCTS(object):
             possibleMove = [(i, nextBoard(statelist[:], player, i)) 
             for i, p in enumerate(allow) if p == True]
 
-            move, state = choice(possibleMove)
+            weightdict = weightfunction(allow, statelist, player)
+            weight, move, state = max([(weightdict[p], p, B) for p, B in possibleMove])
+            statelist = list(state)
+            
             visitedStates.add((player, move, state))
             statelist = list(state)
             
@@ -448,7 +658,7 @@ class MCTS(object):
 
 # modify reversi_ai function to implement your algorithm
 
-def reversi_ai(player: int, board: List[int], allow: List[bool], MyBoard) -> Tuple[int, int]:
+def reversi_ai(player: int, board: List[int], allow: List[bool], MyBoard, roll) -> Tuple[int, int]:
     '''
     AI 用户逻辑
     参数：player: 当前玩家编号（0 或者 1）
@@ -458,7 +668,7 @@ def reversi_ai(player: int, board: List[int], allow: List[bool], MyBoard) -> Tup
     return: 落子坐标元组
     '''
     
-    MyBoard.mctsplayer, MyBoard.mctsBoard, MyBoard.mcstAllow = player, board[:], allow[:]
+    MyBoard.mctsplayer, MyBoard.mctsBoard, MyBoard.mcstAllow, MyBoard.roll = player, board[:], allow[:], roll
 
     # 初始化搜索树
     if board.count(0) + board.count(1) == 4 or board.count(0) + board.count(1) == 5:
@@ -515,15 +725,20 @@ def start():
     循环入口
     '''
     read_buffer = sys.stdin.buffer
-    MyBoard = MCTS(1, [], [])
+    MyBoard = MCTS(1, [], [], 0)
+    roll = 0
     while True:
+        roll += 1
         data = read_buffer.read(67)
         now_player = int(data.decode()[1])
         str_list = list(data.decode()[2:-1])
         board_list = [int(i) for i in str_list]
         next_list = ask_next_pos(board_list, now_player)
-        x, y = reversi_ai(now_player, board_list, next_list, MyBoard)
+        x, y = reversi_ai(now_player, board_list, next_list, MyBoard, roll)
+        # if roll == 15:
+        #     MyBoard.calculationtime = 3
         send_opt(str(x)+str(y))
+
 
 if __name__ == '__main__':
     start()

@@ -442,7 +442,14 @@ class MCTS(object):
 
 
         # 计算所有允许落子位置的胜率最大值，并记录下对应的落子点
-        Del = [(p, S) for p, S in possibleMove if p not in [1, 8, 9, 48, 49, 57, 6, 14, 15, 54, 55, 62]]
+
+        Del = [(p, S) for p, S in possibleMove if p not in 
+        (((([1, 8, 9, 48, 49, 57, 6, 14, 15, 54, 55, 62] if S[0] != player else [48, 49, 57, 6, 14, 15, 54, 55, 62])
+        if S[56] != player else [6, 14, 15, 54, 55, 62])
+        if S[7] != player else [54, 55, 62])
+        if S[63] != player else [])
+        ]
+
         if len(Del) != 0:
             possibleMove = Del
         winProbability, move = max (

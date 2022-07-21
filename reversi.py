@@ -201,9 +201,9 @@ def weightfunction(allow, board, player):
         Weight = 0
         for p in i[1]:
             if p == player:
-                Weight += Vmap[i[0]]
+                Weight += Vmap[p]
             elif p == ((player + 1) % 2):
-                Weight -= Vmap[i[0]]
+                Weight -= Vmap[p]
         weightdict[i[0]] = Weight
 
     return weightdict
@@ -440,14 +440,13 @@ class MCTS(object):
         possibleMove = [(i, nextBoard(self.mctsBoard[:], player, i)) 
         for i, p in enumerate(legal) if p == True]
 
+
         # 计算所有允许落子位置的胜率最大值，并记录下对应的落子点
-        if self.roll <= 4:
-            weightdict = weightfunction(legal, self.mctsBoard[:], player)
-            weight, move, state = max([(weightdict[p], p, B) for p, B in possibleMove])
-        else: 
-             # 计算所有允许落子位置的胜率最大值，并记录下对应的落子点
-            winProbability, move = max (
-            (self.plays.get((player, p, S), 1), p) for p, S in possibleMove
+        Del = [(p, S) for p, S in possibleMove if p not in [1, 8, 9, 48, 49, 57, 6, 14, 15, 54, 55, 62]]
+        if len(Del) != 0:
+            possibleMove = Del
+        winProbability, move = max (
+        (self.plays.get((player, p, S), 1), p) for p, S in possibleMove
         )
 
         return move

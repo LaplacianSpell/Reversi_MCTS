@@ -735,8 +735,6 @@ def start():
         board_list = [int(i) for i in str_list]
         next_list = ask_next_pos(board_list, now_player)
         x, y = reversi_ai(now_player, board_list, next_list, MyBoard, roll)
-        # if roll == 15:
-        #     MyBoard.calculationtime = 3
         send_opt(str(x)+str(y))
 
 
